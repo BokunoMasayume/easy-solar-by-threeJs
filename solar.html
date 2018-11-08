@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>solar system</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+	<script type="text/javascript" src="three.js"></script>
+	<script type="text/javascript" src="OrbitControls.js"></script>
+	<script type="text/javascript" src="FlyControls.js"></script>
+	<script type="text/javascript" src="DeviceOrientationControls.js"></script>
+	<script type="text/javascript" src="Lensflare.js"></script>
+	<style type="text/css">
+		body{
+			margin: 0;
+			padding: 0;
+		}
+	</style>
+</head>
+<body>
+<div id="container"></div>
+
+<script type="text/javascript">
+	var container,renderer,camera,scene,sunLight;
+	var height = window.screen.height;
+	var width = window.screen.width ;
+	console.log("height:"+height+" width:"+width);
+	var mercury1={},//水
+		venus2={},//金
+		earth3={},//地
+		mars4={},//火
+		jupiter5={},//木
+		saturn6={},//土
+		uranus7={},//天王
+		neptune8={};//海王
+	var sun={};
+	var planes=[];
+	var speedRate=0.01;
+	var camControl , clock;
+	var devControl;
+	var bgBox;
+	var light;
+	var lensflare;//光晕
+
+	// 缩放速度
+	var zoomSpeed=1;
+
+	var asteroids1 = new THREE.Group();
+	var asteroids2 = new THREE.Group();
+
+	var flag = true;
+
+	Init();
+	initBgBox();
+	initPlanes();
+	console.log(camera);
+	initAsteroids(asteroids1 , 100 , 101 , 50 , 3);
+	initAsteroids(asteroids2 , 400 , 280 , 80 , 8);
+	touchListener(zoomSpeed);
+	animate();
+
+
+	function touchListener(zSpeed){
+		var dollStart = 0;
+		var dollEnd = 0;
+		var dist = 0;
+
+		function onTouchStart(event){
+			event.preventDefault();
+
+			if(event.touches.length != 2){
+				return false;
+			}
+
+			var dx = event.touches[0].pageX - event.touches[1].pageX;
+			var dy = event.touches[0].pageY - event.touches[1].pageY;
+			dollStart = Math.sqrt(dx*dx + dy*dy);
+		}
+
+		function onTouchMove(event){
+			event.preventDefault();
+			event.stopPropagation();
+
+			if(event.touches.length != 2){
+				return false;
+			}
+			var dx = event.touches[0].pageX - event.touches[1].pageX;
+			var dy = event.touches[0].pageY - event.touches[1].pageY;
+			dollEnd = Math.sqrt(dx*dx + dy*dy);
+
+			// dist>0 forward
+			// dist<0 backward
+			dist = (dollEnd - dollStart) * zSpeed
+
+			dollyAction(dist);
+
+			dollStart = dollEnd;
+
+		}
+
+		function dollyAction(d){
+			// var rx = camera.rotation.x;
+			// var ry = camera.rotation.y;
+			// var rz = camera.rotation.z;
+
+			// var x0 = 0;
+			// var y0 = 0;
+			// var z0 = -1;
+
+			// var x,y,z;
+
+			// x = x0;y = y0; z = z0;
+			camera.translateZ(-d);
+
+		}
+
+
+
+		document.addEventListener('touchstart' , onTouchStart , false);
+		document.addEventListener('touchmove' , onTouchMove , false);
+	}
+
+
+
+	function IsPC(){    
+     var userAgentInfo = navigator.userAgent;  
+     var Agents = new Array("Android", "iPhone", "SymbianOS", "Windows Phone", "iPad", "iPod");    
+     var flag = true;    
+     for (var v = 0; v < Agents.length; v++) {    
+         if (userAgentInfo.indexOf(Agents[v]) > 0) { flag = false; break; }    
+     }    
+     return flag;    
+  } 
+	//场景基础设施
+	function Init(){
+		container = document.getElementById("container");
+		renderer = new THREE.WebGLRenderer({
+			antialias:true,
+			alpha : true
+		});
+		renderer.setSize(width,height);
+	console.log("height:"+height+" width:"+width);
+
+		renderer.setClearColor(0x000000);
+		container.appendChild(renderer.domElement);
+
+		scene = new THREE.Scene();
+
+		camera = new THREE.PerspectiveCamera(60,width / height ,1 ,2000);
+		camera.position.set(0,0,150);
+		camera.lookAt(scene.position);
+		scene.add(camera);
+
+		sunLight = new THREE.PointLight(0xffffff , .5 , 2000);
+		sunLight.position.set(0,0,0);
+		scene.add(sunLight);
+
+		light = new THREE.AmbientLight(0xf1f1f1);
+		scene.add(light);
+
+
+	
+		// lensflare = new THREE.Lensflare();
+	
+		// lensflare.addElement(new THREE.LensflareElement(new THREE.TextureLoader().load("./lensflare/lensflare0.png"),
+		// 	800,
+		// 	10.0));
+			
+		// sunLight.add(lensflare);
+
+		if(IsPC()){
+			// camControl = new THREE.OrbitControls(camera , renderer.domElement);
+
+			camControl = new THREE.FlyControls(camera);
+			camControl.movementSpeed = 100;
+			camControl.rollSpeed = Math.PI / 6;
+			clock = new THREE.Clock();
+			console.log("pc camera init");
+		}else{
+			// camControl = new THREE.OrbitControls(camera , renderer.domElement);
+			devControl = new THREE.DeviceOrientationControls(camera);
+			console.log("手机 camera init");
+
+		}
+		
+
+		
+
+	}
+
+	function initBgBox(){
+		var path = "./MilkyWay/dark-s_";
+		var directions = ["px","nx","py","ny","pz","nz"];
+		var materArray = [];
+		for(var i=0 ; i<6;i++){
+			materArray.push( new THREE.MeshBasicMaterial({
+				map: new THREE.TextureLoader().load(path+directions[i]+".jpg"),
+				side:THREE.BackSide
+			}));
+		}
+
+		// var cubemater = new THREE.MeshFaceMaterial(materArray);
+
+
+		bgBox = new THREE.Mesh(new THREE.CubeGeometry(1500,1500,1500) , materArray);
+		bgBox.position.set(0,0,0);
+		scene.add(bgBox);
+	}
+
+	function initAsteroids(asteGroup ,num , r , w,h){
+		var step = Math.PI*2 / num;
+		var asteroid;
+		for(var p = 0;p < Math.PI *2 ; p = p+ (0.5+Math.random())*step){
+			asteroid =  new THREE.Mesh(new THREE.IcosahedronGeometry(2 , 0),
+				new THREE.MeshLambertMaterial({color:0x5E5A5A}));
+
+			var size = Math.random() * 0.5;
+			for(var i=0;i<asteroid.geometry.vertices.length;i++){
+				asteroid.geometry.vertices[i].multiplyScalar(size + Math.random()*0.5);
+			}
+
+			var widthBuff = Math.random() * w - w/2;
+			var heightBuff = Math.random() * h - h/2;
+
+			asteroid.position.set(
+				(r+widthBuff)*Math.cos(p),
+				heightBuff,
+				(r+widthBuff)*Math.sin(p)
+				);
+
+			asteroid.geometry.computeFlatVertexNormals();
+
+			asteGroup.add(asteroid);
+		}
+
+		scene.add(asteGroup);
+	}
+
+	/****************************
+	plane : 行星对象
+	d : 到太阳距离
+	r : 行星半径
+	s : 行星角速度
+	url : 贴图路径 
+
+	*****************************/
+	function initPlane(plane , d ,r , s ,planeurl,daiurl){
+		plane.degree = Math.PI * 2 * Math.random();
+		plane.distance = d;
+		plane.radius = r;
+		plane.speed = s;
+		plane.mesh = new THREE.Mesh(
+			new THREE.SphereGeometry(r,24,24) ,
+			new THREE.MeshLambertMaterial({
+			map: new THREE.TextureLoader().load(planeurl)})
+			);
+		plane.mesh.position.set(d*Math.cos(plane.degree) , 0 , d*Math.sin(plane.degree));
+		scene.add(plane.mesh);
+		if(daiurl){
+			plane.hasDai = true;
+			plane.dai = new THREE.Mesh(new THREE.RingGeometry(r+2,r+5,24) , new THREE.MeshLambertMaterial({
+				map: new THREE.TextureLoader().load(daiurl)
+			}));
+			plane.dai.rotation.x=0.25*Math.PI;
+			plane.dai.rotation.z=0.25*Math.PI;
+
+			plane.dai.position.set(d*Math.cos(plane.degree) , 0 , d*Math.sin(plane.degree));
+			scene.add(plane.dai);
+		}else{
+			plane.hasDai = false;
+		}
+
+		plane.update = function(rate){
+			this.degree += (this.speed*rate);
+			// console.log(this.speed*rate);
+			this.degree = (this.degree % (Math.PI*2));
+
+			this.mesh.position.set(this.distance * Math.cos(this.degree) ,0 , this.distance*Math.sin(this.degree) );
+			if(this.hasDai){
+				this.dai.position.set(this.distance * Math.cos(this.degree) ,0 , this.distance*Math.sin(this.degree) );
+			}	
+		}
+
+
+	}//initPlane
+
+
+
+	function initPlanes(){
+		var path = "./solarImg/";
+		var type = ".jpg";
+		initPlane(sun , 0 , 10 , 1 , path+"sun"+type);
+		planes.push(sun);
+		
+		// sun = new THREE.Mesh(
+		// 	new THREE.SphereGeometry(10,24,24) ,
+		// 	new THREE.MeshLambertMaterial({
+		// 	map: new THREE.TextureLoader().load(path+"sun"+type),
+		// 	transparent:true,
+		// 	opacity:0.5
+		// 	})
+		// 	);
+		// sun.add(lensflare);
+		// sun.position.set(0,0,0);
+		// scene.add(sun);
+
+		initPlane(mercury1 , 25 , 3 , 0.2 , path+"mercury"+type);
+		planes.push(mercury1);
+
+		initPlane(venus2 , 40,4,0.2,path+"venus"+type);
+		planes.push(venus2);
+
+		initPlane(earth3 , 55 , 4, 0.3 , path+"earth"+type);
+		planes.push(earth3);
+
+		initPlane(mars4 , 70 , 3,0.24,path+"mars"+type);
+		planes.push(mars4);
+
+		initPlane(jupiter5 ,133 ,7,0.11,path+"jupiter"+type );
+		planes.push(jupiter5);
+
+		initPlane(saturn6 , 158 , 6 , 0.09 , path+"saturn"+type , path+"saturnDai.png");
+		planes.push(saturn6);
+
+		initPlane(uranus7 , 208 ,5 ,0.06 , path+"uranus"+type );
+		planes.push(uranus7);
+
+		initPlane(neptune8 , 233 , 4 , 0.05 , path+"neptune"+type);
+		planes.push(neptune8);
+
+		renderer.render(scene , camera);
+	}
+
+
+	function animate(){
+		for(var i = 0;i<planes.length;i++){
+			planes[i].update(speedRate);
+		}
+
+		if(IsPC()){
+			// camControl.update();
+
+			camControl.update(clock.getDelta());
+			// console.log("pc camera update");
+
+
+		}else{
+			// camControl.update();
+			devControl.update();
+
+			// console.log("手机 camera update");
+
+		}
+		
+		// console.log(camera.rotation+"     "+camera.quaternion);
+		// if(flag){
+		// console.log("first :  "+camera.rotation.x+"  "+camera.rotation.y+"  "+camera.rotation.z);
+		// flag = false;
+
+		// }else{
+		// console.log(camera.rotation.x+"  "+camera.rotation.y+"  "+camera.rotation.z);
+
+		// }
+		// camera.translateZ(.5);
+
+		console.log(camera.rotation.x+"  "+camera.rotation.y+"  "+camera.rotation.z);
+
+		asteroids1.rotation.y -= speedRate * 0.1;
+		asteroids2.rotation.y -= speedRate * 0.1;
+		renderer.render(scene , camera);
+
+		/*********测试*******/
+		// camera.position.set(0,100,150);
+
+		requestAnimationFrame(animate);
+	}
+
+
+
+</script>
+</body>
+</html>
